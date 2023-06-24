@@ -2,9 +2,6 @@ require('dotenv').config();
 
 const util = require('./util')
 const net = require('net');
-const axios = require('axios');
-const { request } = require('http');
-const { match } = require('assert');
 
 // Load the initial service URLs and weights from environment variables
 const services = [
@@ -36,32 +33,43 @@ const server = net.createServer((conn) => {
   console.log('Client connected!');
 
   conn.on('data', (data) => {
-	  // Parse the HTTP request
-    // header = JSON.parse(data.substring(data.indexOf("\n") + 1, data.lastIndexOf("\n")))
-    // console.log(header)
-    // var parsed = parseRequest(
-    //   Buffer.from(`GET / HTTP/1.1
-    // Host: www.example.com
-    
-    // `)
-    // );
-    
+    request = data
 
+    // // Get the next service using the Weighted Round Robin algorithm
+    // const nextService = getNextService();
 
-    // console.log(parsed.body);
-
-    // console.log(parsed);
-    // console.log(parseRequest(data))
-    const request = parseHttpRequest(data);
-
-    // Get the next service using the Weighted Round Robin algorithm
-    const nextService = getNextService();
-
-    // Forward the HTTP request to the next service
-    forwardHttpRequest(request, nextService);
+    // // Forward the HTTP request to the next service
+    forwardHttpRequest(request, conn);
   });
+
 });
-    
+
+// server.on('data', (data) => {
+//   // Parse the HTTP request
+//   // header = JSON.parse(data.substring(data.indexOf("\n") + 1, data.lastIndexOf("\n")))
+//   // console.log(header)
+//   // var parsed = parseRequest(
+//   //   Buffer.from(`GET / HTTP/1.1
+//   // Host: www.example.com
+  
+//   // `)
+//   // );
+  
+
+//   // console.log(parsed.body);
+
+//   // console.log(parsed);
+//   // console.log(parseRequest(data))
+//   // const request = parseHttpRequest(data);
+//   request = data
+
+//   // Get the next service using the Weighted Round Robin algorithm
+//   const nextService = getNextService();
+
+//   // Forward the HTTP request to the next service
+//   forwardHttpRequest(request, nextService);
+// });
+
 // Start the TCP server
 server.listen(3000, () => {
 	console.log('Load Balancer started on port 3000');
@@ -99,38 +107,28 @@ function parseHttpRequest(requestData) {
   return request
 }
 
-function forwardHttpRequest(request, service) {
+function forwardHttpRequest(request, conn) {
   // Forward the HTTP request to the specified service
-  const client = net.createConnection({ port: 8124 }, () => {
+  const client = net.createConnection({ port: 4001 }, () => {
     // 'connect' listener.
     console.log('Connected to service!');
     client.write(request);
   });
 
-  // client.on('data', (data) => {
-  //   console.log(data.toString());
-  //   client.end();
-  // });
+  
+
+  client.on('data', (data) => {
+    conn.write(data.toString());
+    // console.log(data.toString());
+    client.end();
+  });
 
   client.on('end', () => {
-    console.log('disconnected from server');
+    console.log('Disconnected from service!');
   }); 
-
-  // switch (request.method) {
-  //   case 'GET':
-  //     // console.log("GET !")
-  //     // console.log(service.url)
-  //     // axios.get(service.url);
-  //   case 'POST':
-
-  //   case 'PUT':
-
-  //   case "DELETE":
-  
-  // }
 }
 
-String.prototype.indexOfEnd = function(string) {
-  var io = this.indexOf(string);
-  return io == -1 ? -1 : io + string.length;
-}
+// String.prototype.indexOfEnd = function(string) {
+//   var io = this.indexOf(string);
+//   return io == -1 ? -1 : io + string.length;
+// }

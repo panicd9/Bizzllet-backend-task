@@ -22,8 +22,7 @@ redisClient.on('error', (err) => {
 
 // Example: Get all products from user's cart
 app.get('/cart/:userId', async (req, res) => {
-    // Retrieve the cart data from Redis
-    // Return the cart data as a response
+    console.log("Received get request!")
     const cartKey = `cart:${req.params.userId}`;
 
     redisClient.SMEMBERS(cartKey)
@@ -39,11 +38,6 @@ app.get('/cart/:userId', async (req, res) => {
         }
     })
     .catch(err => console.error(err))
-
-    // if (error) console.error(error)
-    // if (data != null) {
-    //     return res.status(200).json(data)
-    // }
 });
 
 // Example: Add product to user's cart
@@ -75,6 +69,7 @@ app.put('/cart/:userId', jsonParser, async (req, res) => {
 // Extract the necessary information from the request parameters and body
 // Update the product quantity in the user's cart in Redis
 // Return a success response
+    console.log("Received PUT request!")
     const { userId, productId, quantity } = req.body;   
     const cartKey = `cart:${req.params.userId}`;
     cartItems = []
