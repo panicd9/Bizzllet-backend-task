@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@noble/curves": "^1.1.0",
     "axios": "^1.4.0",
     "dotenv": "^16.3.1",
     "http-parser-js": "^0.5.8"

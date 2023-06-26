@@ -2,6 +2,31 @@ require('dotenv').config();
 
 const util = require('./util')
 const net = require('net');
+const { secp256k1 } =  require('@noble/curves/secp256k1');
+const { json } = require('stream/consumers');
+const { request } = require('http');
+
+// const priv = secp256k1.utils.randomPrivateKey();
+// const pub = secp256k1.getPublicKey(priv);
+const priv = new Uint8Array([
+  147, 146, 165,  12,  47,  69,   7,
+  101, 133, 107, 108, 217, 124,  40,
+  188, 158, 192,  51, 159, 124,  46,
+  224, 151, 222,  64, 199, 221, 193,
+  105, 255,  25, 194
+])
+const pub = new Uint8Array([
+  3, 220, 176,  74, 186, 168, 174, 173,
+  46, 174, 204, 159, 206, 132, 254,  84,
+  30, 149,   2, 162, 226,  29,  54, 178,
+  72, 223,  78, 159,  78,  37,  60, 216,
+  167
+])
+console.log(priv)
+console.log(pub)
+// const msg = new Uint8Array(32).fill(1);
+// const sig = secp256k1.sign(msg, priv);
+// const isValid = secp256k1.verify(sig, msg, pub) === true;
 
 // Load the initial service URLs and weights from environment variables
 const services = [
@@ -33,7 +58,7 @@ const server = net.createServer((conn) => {
   console.log('Client connected!');
 
   conn.on('data', (data) => {
-    request = data
+    var request = data
 
     // // Get the next service using the Weighted Round Robin algorithm
     // const nextService = getNextService();
@@ -82,7 +107,10 @@ server.listen(3000, () => {
 // Implement these functions according to the requirements of the task
 function parseHttpRequest(requestData) {
   // Parse the HTTP request and return the necessary information
+  // console.log("typeof", toType(requestData))
   requestRaw = requestData.toString()
+
+  request.raw = requestRaw
 
   request.method = requestRaw.substring(
     0,
@@ -96,13 +124,23 @@ function parseHttpRequest(requestData) {
   // m = /\n\s*/.exec(requestRaw)
   // bodyStartIndex = m.index + m[0].length
   // console.log(bodyStartIndex)
-  request.body = requestRaw.substring(
-    requestRaw.indexOfEnd("Content-Length: " + contentLength)
-  ).trim()
 
-  // console.log(requestRaw)
+  request.path = requestRaw.split(' ')[1]
+  // console.log("requestData.path", requestData.path)
+
+  request.body = null
+  if (request.method != "GET") {
+    request.body = requestRaw.substring(
+      requestRaw.indexOfEnd("Content-Length: " + contentLength)
+    ).trim()
+  } else {
+    request.body = ""
+  }
+  
+
+  console.log(requestRaw)
   // console.log(request.method)
-  console.log(request.body)
+  // console.log(request.body)
   // console.log(contentLength)
   return request
 }
@@ -112,7 +150,12 @@ function forwardHttpRequest(request, conn) {
   const client = net.createConnection({ port: 4001 }, () => {
     // 'connect' listener.
     console.log('Connected to service!');
-    client.write(request);
+    reqObj = parseHttpRequest(request)
+    reqSigned = signMessage(reqObj)
+
+    console.log("reqObj:", reqObj.body, "\n")
+    // console.log(request.toString());
+    client.write(reqSigned);
   });
 
   
@@ -128,7 +171,40 @@ function forwardHttpRequest(request, conn) {
   }); 
 }
 
-// String.prototype.indexOfEnd = function(string) {
-//   var io = this.indexOf(string);
-//   return io == -1 ? -1 : io + string.length;
-// }
+String.prototype.indexOfEnd = function(string) {
+  var io = this.indexOf(string);
+  return io == -1 ? -1 : io + string.length;
+}
+
+
+function signMessage(reqObj) {
+
+  // reqObj = reqObj.raw
+  msg = reqObj.method + reqObj.path + (JSON.stringify(JSON.parse(reqObj.body)) || "") 
+
+  hexMsg = Buffer.from(msg).toString('hex')
+  console.log("Hex msg: ", hexMsg)
+  const sig = secp256k1.sign(hexMsg, priv).toCompactHex();
+
+  // sigSerialized = JSON.stringify(sig, (key, value) =>
+  //                               typeof value === 'bigint'
+  //                                   ? value.toString()
+  //                                   : value // return everything else unchanged
+  //                               )
+  
+  // hexSigSerialized = Buffer.from(sigSerialized).toString('hex')
+
+  // console.log("Sig:", hexSigSerialized)
+
+  // console.log(hexSigSerialized)
+  authHeader = "Authorization: " + sig
+  var request = reqObj.raw
+  // console.log("Request: ", request)
+  request = request.split("\n")
+  // console.log("Request: ", request)
+  request.splice(1, 0, authHeader)
+  request = request.join("\n")
+  console.log("Request: ", request)
+
+  return request
+}

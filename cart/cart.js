@@ -1,8 +1,17 @@
 const express = require('express');
 const bodyParser = require('body-parser')
 const redis = require('redis');
-
+const { secp256k1 } =  require('@noble/curves/secp256k1')
 const app = express();
+
+loadBalancerPub = new Uint8Array([
+    3, 220, 176,  74, 186, 168, 174, 173,
+    46, 174, 204, 159, 206, 132, 254,  84,
+    30, 149,   2, 162, 226,  29,  54, 178,
+    72, 223,  78, 159,  78,  37,  60, 216,
+    167
+  ])
+
 var jsonParser = bodyParser.json()
 
 const port = process.env.PORT || 4001;
@@ -23,6 +32,9 @@ redisClient.on('error', (err) => {
 // Example: Get all products from user's cart
 app.get('/cart/:userId', async (req, res) => {
     console.log("Received get request!")
+
+    verifyRequest(req, loadBalancerPub)
+
     const cartKey = `cart:${req.params.userId}`;
 
     redisClient.SMEMBERS(cartKey)
@@ -45,6 +57,8 @@ app.post('/cart', jsonParser, (req, res) => {
     // Extract the necessary information from the request body
     const { userId, productId, quantity } = req.body;
   
+    verifyRequest(req, loadBalancerPub)
+
     // Validate the input (e.g., check if required fields are present)
   
     // Generate a unique key for the user's cart in Redis
@@ -70,6 +84,8 @@ app.put('/cart/:userId', jsonParser, async (req, res) => {
 // Update the product quantity in the user's cart in Redis
 // Return a success response
     console.log("Received PUT request!")
+    verifyRequest(req, loadBalancerPub)
+
     const { userId, productId, quantity } = req.body;   
     const cartKey = `cart:${req.params.userId}`;
     cartItems = []
@@ -115,6 +131,9 @@ app.delete('/cart/:userId', jsonParser, async (req, res) => {
 // Extract the necessary information from the request parameters
 // Remove the product from the user's cart in Redis
 // Return a success response
+
+    verifyRequest(req, loadBalancerPub)
+
     const {productId} = req.body;
     const cartKey = `cart:${req.params.userId}`;
 
@@ -143,3 +162,23 @@ app.delete('/cart/:userId', jsonParser, async (req, res) => {
 app.listen(port, () => {
     console.log(`Cart service running on port ${port}`);
 });
+
+
+function verifyRequest(request, pub) {
+    // sig = request.headers.authentication 
+    // console.log(request.headers.authorization)
+    msg = request.method + request.originalUrl + (JSON.stringify(request.body) || "") 
+    hexMsg = Buffer.from(msg).toString('hex')
+
+    console.log("Hex msg: ", hexMsg)
+
+    sig = request.headers.authorization 
+
+    console.log("Sig: ", sig)
+
+    isValid = secp256k1.verify(sig, hexMsg, pub) === true
+    console.log(isValid)
+
+    return isValid
+
+}
