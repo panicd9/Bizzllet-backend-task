@@ -14,26 +14,16 @@ loadBalancerPub = new Uint8Array([
 
 var jsonParser = bodyParser.json()
 
-const port = process.env.PORT || 4001;
-
 // Create a Redis client
 const redisClient = redis.createClient();
-
-redisClient.connect().then(() => {
-    console.log('Connected to Redis');
-}).catch((err) => {
-    console.log(err.message);
-})
-
-redisClient.on('error', (err) => {
-    console.log('Error occured while connecting or accessing redis server');
-});
 
 // Example: Get all products from user's cart
 app.get('/cart/:userId', async (req, res) => {
     console.log("Received get request!")
 
-    verifyRequest(req, loadBalancerPub)
+    if (!verifyRequest(req, loadBalancerPub)) {
+        return res.status(403).json({ error: 'Forbidden access!' });
+    }
 
     const cartKey = `cart:${req.params.userId}`;
 
@@ -44,9 +34,9 @@ app.get('/cart/:userId', async (req, res) => {
             for (var i = 0; i < data.length; i++) {
                 cartItems.push(JSON.parse(data[i]))
             }
-            res.status(200).json(cartItems)
+            return res.status(200).json(cartItems)
         } else {
-            res.status(200).json({ message: `No items in ${cartKey} !` });
+            return res.status(200).json({ message: `No items in ${cartKey} !` });
         }
     })
     .catch(err => console.error(err))
@@ -54,10 +44,17 @@ app.get('/cart/:userId', async (req, res) => {
 
 // Example: Add product to user's cart
 app.post('/cart', jsonParser, (req, res) => {
-    // Extract the necessary information from the request body
-    const { userId, productId, quantity } = req.body;
-  
-    verifyRequest(req, loadBalancerPub)
+    if (!verifyRequest(req, loadBalancerPub)) {
+        return res.status(403).json({ error: 'Forbidden access!' });
+    }
+
+    var userId, productId, quantity 
+    try {
+        ({ userId, productId, quantity }  = req.body)
+    } catch {
+        return res.status(500).json({ message: 'Wrong body!' });
+    }
+    
 
     // Validate the input (e.g., check if required fields are present)
   
@@ -84,9 +81,18 @@ app.put('/cart/:userId', jsonParser, async (req, res) => {
 // Update the product quantity in the user's cart in Redis
 // Return a success response
     console.log("Received PUT request!")
-    verifyRequest(req, loadBalancerPub)
 
-    const { userId, productId, quantity } = req.body;   
+    if (!verifyRequest(req, loadBalancerPub)) {
+        return res.status(403).json({ error: 'Forbidden access!' });
+    }
+
+    var userId, productId, quantity 
+    try {
+        ({userId, productId, quantity}  = req.body)
+    } catch {
+        return res.status(500).json({ message: 'Wrong body!' });
+    }
+
     const cartKey = `cart:${req.params.userId}`;
     cartItems = []
     itemToRemoveString = null
@@ -132,9 +138,17 @@ app.delete('/cart/:userId', jsonParser, async (req, res) => {
 // Remove the product from the user's cart in Redis
 // Return a success response
 
-    verifyRequest(req, loadBalancerPub)
+    if (!verifyRequest(req, loadBalancerPub)) {
+        return res.status(403).json({ error: 'Forbidden access!' });
+    }
 
-    const {productId} = req.body;
+    var productId 
+    try {
+        ({ productId } = req.body)
+    } catch {
+        return res.status(500).json({ message: 'Wrong body!' });
+    }
+
     const cartKey = `cart:${req.params.userId}`;
 
     itemToRemoveString = null
@@ -152,27 +166,34 @@ app.delete('/cart/:userId', jsonParser, async (req, res) => {
     })
     .catch(err => console.error(err))
 
-    // console.log(itemToRemoveString)
+    // console.log("Item to remove string:", itemToRemoveString)
+    // console.log("Cartkey", cartKey)
+
     redisClient.sRem(cartKey, itemToRemoveString)
-    .then()
-    .catch(err => console.error(err))
+    .then( () => {
+        return res.status(200).json({ message: 'Product removed succesfully!' })
+    })
+    .catch(err => {
+        // console.error(err)
+        return res.status(500).json({ error: 'Product does not exist' });
+    })
 });
-
-// Start the server
-app.listen(port, () => {
-    console.log(`Cart service running on port ${port}`);
-});
-
 
 function verifyRequest(request, pub) {
     // sig = request.headers.authentication 
     // console.log(request.headers.authorization)
-    msg = request.method + request.originalUrl + (JSON.stringify(request.body) || "") 
+    // console.log("BODY: ", request.body)
+
+    if (!request.headers.authorization){
+        return false
+    }
+
+    msg = request.method + request.originalUrl + (JSON.stringify(request.body) || "{}") 
     hexMsg = Buffer.from(msg).toString('hex')
 
     console.log("Hex msg: ", hexMsg)
 
-    sig = request.headers.authorization 
+    sig = request.headers.authorization
 
     console.log("Sig: ", sig)
 
@@ -181,4 +202,9 @@ function verifyRequest(request, pub) {
 
     return isValid
 
+}
+
+module.exports = {
+    app: app,
+    redisClient: redisClient
 }

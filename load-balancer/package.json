@@ -4,7 +4,7 @@
   "description": "",
   "main": "loadBalancer.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "set DOTENV_CONFIG_PATH=tests/.env.test& jest --setupFiles=dotenv/config"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +14,8 @@
     "axios": "^1.4.0",
     "dotenv": "^16.3.1",
     "http-parser-js": "^0.5.8"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0"
   }
 }

@@ -1,10 +1,8 @@
-require('dotenv').config();
+require('dotenv').config({path: ".env"});
 
 const util = require('./util')
 const net = require('net');
 const { secp256k1 } =  require('@noble/curves/secp256k1');
-const { json } = require('stream/consumers');
-const { request } = require('http');
 
 // const priv = secp256k1.utils.randomPrivateKey();
 // const pub = secp256k1.getPublicKey(priv);
@@ -22,27 +20,33 @@ const pub = new Uint8Array([
   72, 223,  78, 159,  78,  37,  60, 216,
   167
 ])
-console.log(priv)
-console.log(pub)
-// const msg = new Uint8Array(32).fill(1);
-// const sig = secp256k1.sign(msg, priv);
-// const isValid = secp256k1.verify(sig, msg, pub) === true;
+// console.log(priv)
+// console.log(pub)
 
-// Load the initial service URLs and weights from environment variables
-const services = [
-  { url: process.env.SERVICE_1_URL, weight: parseInt(process.env.SERVICE_1_WEIGHT) },
-  { url: process.env.SERVICE_2_URL, weight: parseInt(process.env.SERVICE_2_WEIGHT) },
-  // Add more services as needed
-];
-const totalWeight = services.reduce((sum, { weight }) => sum + weight, 0);
-var arrServiceIndices = []
-for (let i = 0; i < services.length; i++) {
-    arrServiceIndices = arrServiceIndices.concat(Array(services[i].weight).fill(i))
+const { services, arrServiceIndices, totalWeight } = initWRR()
+
+console.log("Services: ", services)
+
+function initWRR() {
+  var services = [
+    { url: process.env.SERVICE_1_URL, weight: parseInt(process.env.SERVICE_1_WEIGHT) },
+    { url: process.env.SERVICE_2_URL, weight: parseInt(process.env.SERVICE_2_WEIGHT) },
+    // Add more services as needed
+  ];
+
+  var arrServiceIndices = []
+  for (let i = 0; i < services.length; i++) {
+      arrServiceIndices = arrServiceIndices.concat(Array(services[i].weight).fill(i))
+  }
+
+  var totalWeight = services.reduce((sum, { weight }) => sum + weight, 0);
+
+  return {
+    services: services,
+    arrServiceIndices: arrServiceIndices,
+    totalWeight: totalWeight
+  }
 }
-// console.log(arrServiceIndices)
-
-// // Define the Weighted Round Robin algorithm to distribute requests
-// let currentServiceIndex = 0;
 
 function getNextService() {
   // Implement the Weighted Round Robin algorithm here
@@ -60,55 +64,33 @@ const server = net.createServer((conn) => {
   conn.on('data', (data) => {
     var request = data
 
-    // // Get the next service using the Weighted Round Robin algorithm
-    // const nextService = getNextService();
-
+    // Get the next service using the Weighted Round Robin algorithm
+    const nextService = getNextService();
+    console.log("Forwarding to service: ", nextService)
     // // Forward the HTTP request to the next service
-    forwardHttpRequest(request, conn);
+    forwardHttpRequest(request, conn, nextService);
   });
 
 });
 
-// server.on('data', (data) => {
-//   // Parse the HTTP request
-//   // header = JSON.parse(data.substring(data.indexOf("\n") + 1, data.lastIndexOf("\n")))
-//   // console.log(header)
-//   // var parsed = parseRequest(
-//   //   Buffer.from(`GET / HTTP/1.1
-//   // Host: www.example.com
-  
-//   // `)
-//   // );
-  
-
-//   // console.log(parsed.body);
-
-//   // console.log(parsed);
-//   // console.log(parseRequest(data))
-//   // const request = parseHttpRequest(data);
-//   request = data
-
-//   // Get the next service using the Weighted Round Robin algorithm
-//   const nextService = getNextService();
-
-//   // Forward the HTTP request to the next service
-//   forwardHttpRequest(request, nextService);
-// });
 
 // Start the TCP server
 server.listen(3000, () => {
 	console.log('Load Balancer started on port 3000');
-  	// for (let i = 0; i < 100; i++) {
-    // 	console.log(getNextService())
-	// }
 });
 
 // Helper functions for parsing and forwarding HTTP requests
-// Implement these functions according to the requirements of the task
 function parseHttpRequest(requestData) {
   // Parse the HTTP request and return the necessary information
   // console.log("typeof", toType(requestData))
-  requestRaw = requestData.toString()
+  var requestRaw = requestData.toString()
+
+  var request = {
+    path: null,
+    body: null,
+    method: null,
+    raw: null
+  }
 
   request.raw = requestRaw
 
@@ -116,17 +98,13 @@ function parseHttpRequest(requestData) {
     0,
     requestRaw.indexOf(" ")
   )
+
   contentLength = parseInt(requestRaw.substring(
     requestRaw.indexOfEnd("Content-Length: "),
     requestRaw.indexOf("\n", requestRaw.indexOf("Content-Length: "))
   ))
   
-  // m = /\n\s*/.exec(requestRaw)
-  // bodyStartIndex = m.index + m[0].length
-  // console.log(bodyStartIndex)
-
   request.path = requestRaw.split(' ')[1]
-  // console.log("requestData.path", requestData.path)
 
   request.body = null
   if (request.method != "GET") {
@@ -134,35 +112,25 @@ function parseHttpRequest(requestData) {
       requestRaw.indexOfEnd("Content-Length: " + contentLength)
     ).trim()
   } else {
-    request.body = ""
+    request.body = "{}"
   }
   
-
-  console.log(requestRaw)
-  // console.log(request.method)
-  // console.log(request.body)
-  // console.log(contentLength)
   return request
 }
 
-function forwardHttpRequest(request, conn) {
+function forwardHttpRequest(request, conn, service) {
   // Forward the HTTP request to the specified service
-  const client = net.createConnection({ port: 4001 }, () => {
+  const client = net.createConnection({ port: service.url.split(':')[1] }, () => {
     // 'connect' listener.
     console.log('Connected to service!');
     reqObj = parseHttpRequest(request)
     reqSigned = signMessage(reqObj)
 
-    console.log("reqObj:", reqObj.body, "\n")
-    // console.log(request.toString());
     client.write(reqSigned);
   });
 
-  
-
   client.on('data', (data) => {
     conn.write(data.toString());
-    // console.log(data.toString());
     client.end();
   });
 
@@ -171,40 +139,38 @@ function forwardHttpRequest(request, conn) {
   }); 
 }
 
+function signMessage(reqObj) {
+
+  var msg
+  try {
+    msg = reqObj.method + reqObj.path + (JSON.stringify(JSON.parse(reqObj.body)) || "") 
+  } catch (error) {
+    return reqObj.raw
+  }
+
+  hexMsg = Buffer.from(msg).toString('hex')
+
+  const sig = secp256k1.sign(hexMsg, priv).toCompactHex();
+
+  authHeader = "Authorization: " + sig
+  var request = reqObj.raw
+
+  request = request.split("\n")
+
+  // add Authorization header
+  request.splice(1, 0, authHeader)
+  request = request.join("\n")
+  return request
+}
+
 String.prototype.indexOfEnd = function(string) {
   var io = this.indexOf(string);
   return io == -1 ? -1 : io + string.length;
 }
 
-
-function signMessage(reqObj) {
-
-  // reqObj = reqObj.raw
-  msg = reqObj.method + reqObj.path + (JSON.stringify(JSON.parse(reqObj.body)) || "") 
-
-  hexMsg = Buffer.from(msg).toString('hex')
-  console.log("Hex msg: ", hexMsg)
-  const sig = secp256k1.sign(hexMsg, priv).toCompactHex();
-
-  // sigSerialized = JSON.stringify(sig, (key, value) =>
-  //                               typeof value === 'bigint'
-  //                                   ? value.toString()
-  //                                   : value // return everything else unchanged
-  //                               )
-  
-  // hexSigSerialized = Buffer.from(sigSerialized).toString('hex')
-
-  // console.log("Sig:", hexSigSerialized)
-
-  // console.log(hexSigSerialized)
-  authHeader = "Authorization: " + sig
-  var request = reqObj.raw
-  // console.log("Request: ", request)
-  request = request.split("\n")
-  // console.log("Request: ", request)
-  request.splice(1, 0, authHeader)
-  request = request.join("\n")
-  console.log("Request: ", request)
-
-  return request
+module.exports = {
+  server: server,
+  initWRR: initWRR,
+  parseHttpRequest: parseHttpRequest,
+  signMessage: signMessage
 }
