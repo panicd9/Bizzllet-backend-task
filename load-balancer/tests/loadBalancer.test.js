@@ -123,7 +123,7 @@ test('Sign request without body', () => {
     signedRequest = loadBalancer.signMessage(reqObj)
 
     expected = `GET /cart/1 HTTP/1.1
-Authorization: 5e5de5796910e608706a3b54aaedf30a14654768d0006386694295c32f0433b85a6419aa19852f80ec5e47c7fc652c841148a45395bb69cc05942dc39520f5b6
+Authorization: 5e5de5796910e608706a3b54aaedf30a14654768d0006386694295c32f0433b85a6419aa19852f80ec5e47c7fc652c841148a45395bb69cc05942dc39520f5b6\r
 User-Agent: PostmanRuntime/7.29.2
 Accept: */*
 Postman-Token: 8bfba605-a4ae-47cb-b588-4cca34178410
@@ -155,7 +155,7 @@ test('Sign request with body', () => {
     signedRequest = loadBalancer.signMessage(reqObj)
 
     expected = `POST /cart HTTP/1.1
-Authorization: bb8485001bf0c19834b2110dac57e2c622ae1cee5597dc1e053abd9e430813df1f1008ccb45c5ad5b5ebc2688490960f78c691ecd8cf8899b1c9953dfd197bc8
+Authorization: bb8485001bf0c19834b2110dac57e2c622ae1cee5597dc1e053abd9e430813df1f1008ccb45c5ad5b5ebc2688490960f78c691ecd8cf8899b1c9953dfd197bc8\r
 Content-Type: application/json
 User-Agent: PostmanRuntime/7.29.2
 Accept: */*
