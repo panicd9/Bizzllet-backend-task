@@ -8,9 +8,6 @@ test('Weighted round robin', () => {
     expect(totalWeight).toBe(8)
 })
 
-test('Is server listening?', () => {
-    expect(loadBalancer.server.listening).toBeTruthy()
-})
 
 test('Parsing HTTP GET request', () => {
     var request = 'GET /cart/1 HTTP/1.1\n' +

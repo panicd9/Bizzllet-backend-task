@@ -16,4 +16,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the Load Balancer service
-CMD [ "node", "loadBalancer.js" ]
+CMD [ "node", "server.js" ]

@@ -70,11 +70,6 @@ const server = net.createServer((conn) => {
 	});
 });
 
-// Start the TCP server
-server.listen(3000, () => {
-	console.log("Load Balancer started on port 3000");
-});
-
 // Helper functions for parsing and forwarding HTTP requests
 function parseHttpRequest(requestData) {
 	// Parse the HTTP request and return the necessary information
