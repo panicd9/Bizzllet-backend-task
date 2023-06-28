@@ -48,7 +48,7 @@ app.get('/cart/:userId', async (req, res) => {
 });
 
 // Example: Add product to user's cart
-app.post('/cart', jsonParser, (req, res) => {
+app.post('/cart', jsonParser, async (req, res) => {
     if (!verifyRequest(req, loadBalancerPub)) {
         return res.status(403).json({ error: 'Forbidden access!' });
     }
@@ -59,12 +59,28 @@ app.post('/cart', jsonParser, (req, res) => {
     } catch {
         return res.status(500).json({ message: 'Wrong body!' });
     }
-    
-
-    // Validate the input (e.g., check if required fields are present)
-  
     // Generate a unique key for the user's cart in Redis
     const cartKey = `cart:${userId}`;
+
+    alreadyInDB = false
+    await redisClient.SMEMBERS(cartKey)
+    .then(data => {
+        if (data.length != 0) {     
+            for (var i = 0; i < data.length; i++) {
+                item = JSON.parse(data[i])
+                cartItems.push(item)
+                // console.log(item.productId, productId)
+                if (item.productId == productId) {
+                    alreadyInDB = true
+                }
+            }
+        }
+    })
+    .catch(err => console.error(err))
+
+    if (alreadyInDB) {
+        return res.status(500).json({ error: 'Already in database!' });
+    }
 
     // Store the product in the user's cart in Redis
     var product = { productId: productId, quantity: quantity }
@@ -118,6 +134,11 @@ app.put('/cart/:userId', jsonParser, async (req, res) => {
         }
     })
     .catch(err => console.error(err))
+
+
+    if (itemToRemoveString == null) {
+        return res.status(500).json({ error: `Cannot change because product with id:${productId} is not in cart!` });
+    }
 
     await redisClient.sRem(cartKey, itemToRemoveString)
     .then()
