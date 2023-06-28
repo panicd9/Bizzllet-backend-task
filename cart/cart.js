@@ -15,7 +15,12 @@ loadBalancerPub = new Uint8Array([
 var jsonParser = bodyParser.json()
 
 // Create a Redis client
-const redisClient = redis.createClient();
+const redisClient = redis.createClient({
+    socket: {
+        host: 'redis',
+        port: '6379'
+    },
+});
 
 // Example: Get all products from user's cart
 app.get('/cart/:userId', async (req, res) => {

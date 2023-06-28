@@ -120,17 +120,22 @@ function parseHttpRequest(requestData) {
 
 function forwardHttpRequest(request, conn, service) {
   // Forward the HTTP request to the specified service
-  const client = net.createConnection({ port: service.url.split(':')[1] }, () => {
+  const client = net.createConnection({
+                                        host: service.url.split(':')[0],
+                                        port: service.url.split(':')[1] 
+                                      } , () => {
     // 'connect' listener.
     console.log('Connected to service!');
     reqObj = parseHttpRequest(request)
     reqSigned = signMessage(reqObj)
-
+    console.log("REQ SIGNED: ", JSON.stringify(reqSigned))
     client.write(reqSigned);
+    // client.write(reqObj.raw)
   });
 
   client.on('data', (data) => {
     conn.write(data.toString());
+    console.log("DATA: ", data.toString())
     client.end();
   });
 
@@ -152,10 +157,12 @@ function signMessage(reqObj) {
 
   const sig = secp256k1.sign(hexMsg, priv).toCompactHex();
 
-  authHeader = "Authorization: " + sig
+  authHeader = "Authorization: " + sig + "\r"
   var request = reqObj.raw
 
   request = request.split("\n")
+
+  request.map(s => s.trim())
 
   // add Authorization header
   request.splice(1, 0, authHeader)

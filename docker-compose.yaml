@@ -1,18 +1,24 @@
 version: '3.8'
 services:
-  # cart-1:
-  #   build: ./cart
-  #   ports:
-  #     - '4001:4001'
-  #   depends_on:
-  #     - redis
-  # load-balancer:
-  #   build: ./load-balancer
-  #   ports:
-  #     - '3000:3000'
-  #   depends_on:
-  #     - redis
-  storage:
+  cart-1:
+    build: ./cart
+    ports:
+      - '4001:4001'
+    depends_on:
+      - redis
+  cart-2:
+    build: ./cart
+    ports:
+      - '4002:4001'
+    depends_on:
+      - redis
+  load-balancer:
+    build: ./load-balancer
+    ports:
+      - '3000:3000'
+    depends_on:
+      - redis
+  redis:
     image: redis:6.2-alpine
     restart: always
     ports:

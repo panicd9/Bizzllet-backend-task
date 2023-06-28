@@ -10,6 +10,7 @@ cart.redisClient.connect().then(() => {
 
 cart.redisClient.on('error', (err) => {
     console.log('Error occured while connecting or accessing redis server');
+    console.error("Error: ", err)
 });
 
 cart.app.listen(port, () => {
