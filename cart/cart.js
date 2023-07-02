@@ -70,7 +70,6 @@ app.post("/cart", jsonParser, async (req, res) => {
 			if (data.length != 0) {
 				for (var i = 0; i < data.length; i++) {
 					item = JSON.parse(data[i]);
-					cartItems.push(item);
 					// console.log(item.productId, productId)
 					if (item.productId == productId) {
 						alreadyInDB = true;
@@ -119,7 +118,6 @@ app.put("/cart/:userId", jsonParser, async (req, res) => {
 	}
 
 	const cartKey = `cart:${req.params.userId}`;
-	cartItems = [];
 	itemToRemoveString = null;
 	// itemToRemove = null
 
@@ -129,7 +127,6 @@ app.put("/cart/:userId", jsonParser, async (req, res) => {
 			if (data.length != 0) {
 				for (var i = 0; i < data.length; i++) {
 					item = JSON.parse(data[i]);
-					cartItems.push(item);
 					// console.log(item.productId, productId)
 					if (item.productId == productId) {
 						itemToRemoveString = data[i];
@@ -223,13 +220,30 @@ function verifyRequest(request, pub) {
 	// console.log(request.headers.authorization)
 	// console.log("BODY: ", request.body)
 
-	// Return false if there is no "Authorization" header
-	if (!request.headers.authorization) {
+	// Return false if there is no "Authorization" header or "Date" header
+	if (!request.headers.authorization || !request.headers.date) {
 		return false;
 	}
 
+	// Return false if date format is invalid
+	try {
+		request.date = new Date(request.headers.date)
+	} catch {
+		return false
+	}
+	
+	now = new Date()
+
+	// signature valid for 5 seconds!
+	if (now.getTime() - request.date.getTime() > 5000) {
+		return false
+	}
+
+
+	console.log(request.date.toString())
 	// Message in format method|path|body ("|" means concatenate)
 	msg =
+		request.date.toString() +
 		request.method +
 		request.originalUrl +
 		(JSON.stringify(request.body) || "{}");

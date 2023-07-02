@@ -138,8 +138,10 @@ function forwardHttpRequest(request, conn, service) {
 
 function signMessage(reqObj) {
 	var msg;
+	now = new Date()
 	try {
 		msg =
+			now.toString() +
 			reqObj.method +
 			reqObj.path +
 			(JSON.stringify(JSON.parse(reqObj.body)) || "");
@@ -152,6 +154,7 @@ function signMessage(reqObj) {
 	const sig = secp256k1.sign(hexMsg, priv).toCompactHex();
 
 	authHeader = "Authorization: " + sig + "\r";
+	dateHeader = "Date: " + now.toString() + "\r"
 	var request = reqObj.raw;
 
 	request = request.split("\n");
@@ -159,8 +162,9 @@ function signMessage(reqObj) {
 	request.map((s) => s.trim());
 
 	// add Authorization header
-	request.splice(1, 0, authHeader);
+	request.splice(1, 0, authHeader, dateHeader);
 	request = request.join("\n");
+	console.log("REQUEST: ", request)
 	return request;
 }
 
